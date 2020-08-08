@@ -1,0 +1,3 @@
+[submodule "tools/countdown-widget"]
+	path = tools/countdown-widget
+	url = https://gitlab.com/pavelow/countdown-widget.git
