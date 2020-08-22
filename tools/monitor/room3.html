@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html style="background-color: #333333; width: 100%; height: 100%; padding: 0; margin: 0;">
+  <head>
+    <title>Room 2</title>
+
+    <link href="//amp.azure.net/libs/amp/2.3.5/skins/amp-default/azuremediaplayer.min.css" rel="stylesheet">
+    <script src="//amp.azure.net/libs/amp/2.3.5/azuremediaplayer.min.js"></script>
+  </head>
+  <body style="background-color: #333333; width: 100%; height: 100%; padding: 0; margin: 0;">
+    
+    <video id="azuremediaplayer" style="display: none; width: 100%; height: 100%;" class="azuremediaplayer amp-default-skin amp-big-play-centered" tabindex="0"></video>
+
+    <script>
+      document.getElementById('azuremediaplayer').style.display = 'block';
+
+      var myOptions = {
+        nativeControlsForTouch: false,
+        controls: true,
+        autoplay: true,
+        width: "100%",
+        height: "100%",
+        muted: true,
+      }
+      myPlayer = amp("azuremediaplayer", myOptions);
+      myPlayer.src([{
+        "src": "//ndvendpoint1-ndvmediaservice1-aueas.streaming.media.azure.net/1710719e-a181-4952-87f1-49fb54b9ac23/50928718-d175-4068-abc2-540581a91454.ism/manifest",
+        "type": "application/vnd.ms-sstr+xml"
+      }]);
+    </script>
+  </body>
+</html>
