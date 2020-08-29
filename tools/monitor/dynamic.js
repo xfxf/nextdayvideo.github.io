@@ -1,106 +1,106 @@
-const fetchState = async (roomName) => {
+const fetchState = async (liveEventName) => {
+  try {
+    const before = Date.now();
+    const fetchResponse = await fetch(`https://pyconlinestreammonitor.azurewebsites.net/api/stream/${liveEventName}`);
+    const state = await fetchResponse.json();
 
-  const fetchResponse = await fetch(`https://pyconlinestreammonitor.azurewebsites.net/api/stream/${roomName}`);
+    const totalTime = Date.now() - before;
 
-  console.log("Got fetchResponse", fetchResponse);
+    console.log(`[${liveEventName}] Got state in ${totalTime}ms`, state);
 
-  const blob = await fetchResponse.json();
-
-  console.log("Got blob", blob);
-
-  const { live, streamURL, error, offlineReason } = blob;
-
-  if (error) {
-    // TODO: Handle error
-    return { mode: 'error', error };
+    return state;
+  } catch(err) {
+    return { error: err.message }
   }
-
-  if (!live) {
-    console.log('Offline because:', offlineReason);
-    return { mode: 'offline' };
-  }
-
-  // TODO: Handle actually being live. Oh.
-  return { mode: 'live', streamURL };
 }
 
 const wait = (time) => new Promise(resolve => setTimeout(resolve, time));
 
+const createSetTitleLabel = (el, room) => ({ loading = false, live = false, error }) => {
+  let description = '';
+  if (loading) {
+    description = '...';
+  } else if (error) {
+    description = `: ${error}`;
+  } else if (live) {
+    description = ' (live)';
+  } else {
+    description = ' (offline)';
+  }
+  el.textContent = `${room}${description}`;
+}
+
 const run = async () => {
-  const myPlayer = amp("azuremediaplayer", {
+  const player = amp("azuremediaplayer", {
     nativeControlsForTouch: false,
     controls: true,
     autoplay: true,
     width: "100%",
     height: "100%",
     muted: true,
-    // logo: {
-    //   enabled: false
-    // }
+    // logo: { enabled: false }
   });
 
   
+  const params = (new URL(location.href)).searchParams;
 
-  const room = (new URL(location.href)).searchParams.get('event');
+  const liveEventName = params.get('event');
+  const displayName = params.get('name') || liveEventName;
 
-  if (!room) {
+  if (!liveEventName) {
     throw new Error('Event not set');
   }
 
   const offlineEl = document.getElementById('offline');
   const roomNameEl = document.getElementById('room-name');
 
-  roomNameEl.textContent = `${room}...`;
+  const setTitleLabel = createSetTitleLabel(roomNameEl, displayName);
 
-  let currentMode = 'pending';
   let currentStreamURL;
 
-  let nextState;
-  while (nextState = await fetchState(room)) {    
-    roomNameEl.textContent = `${room} ${nextState.mode}`;
+  do {
+    setTitleLabel({ loading: true });
 
-    if (nextState.mode === 'error') {
-      console.log('Problem fetching data from server: ', nextState.error);
+    const { error, streamURL, offlineReason } = await fetchState(liveEventName);
+
+    if (error) {
+      setTitleLabel({ error: error });
       await wait(30000);
       continue;
     }
 
-    if (nextState.mode === 'offline') {
-      offlineEl.style.display = '';
-    } else {
-      offlineEl.style.display = 'none';
-    }
+    setTitleLabel({ live: !!streamURL });
 
-    if (nextState.mode === 'live') {
-      if (nextState.streamURL !== currentStreamURL) {
-        myPlayer.src({
-          src: nextState.streamURL,
+    if (streamURL) {
+      offlineEl.style.display = 'none';
+      if (streamURL !== currentStreamURL) {
+        player.src({
+          src: streamURL,
           type: "application/vnd.ms-sstr+xml"
         });
       }
     } else {
+      offlineEl.style.display = '';
+      offlineEl.querySelector('small').textContent = `${liveEventName}: ${offlineReason}`;
+
       if (currentStreamURL) {
-        if (myPlayer.isFullscreen()) {
-          myPlayer.exitFullscreen();
+        if (player.isFullscreen()) {
+          player.exitFullscreen();
         }
 
-        myPlayer.pause();
+        player.pause();
       }
     }
 
-    currentMode = nextState.mode;
-    currentStreamURL = nextState.streamURL;
+    currentStreamURL = streamURL;
 
-    console.log('Set currentState to be: ', {
-      currentMode,
-      currentStreamURL,
-    });
+    const offset = 30000 + (Math.round(Math.random() * 10000) - 5000);
 
 
-    await wait(30000);
+    console.log(`[${liveEventName}] Next in ${offset}ms`);
 
-    roomNameEl.textContent = `${room}...`;
-  };
+    await wait(offset);
+  } while(true);
 
 };
 
