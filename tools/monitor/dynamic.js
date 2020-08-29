@@ -1,7 +1,7 @@
 const fetchState = async (liveEventName) => {
   try {
     const before = Date.now();
-    const fetchResponse = await fetch(`https://pyconlinestreammonitor.azurewebsites.net/api/stream/${liveEventName}`);
+    const fetchResponse = await fetch(`https://pyconlinestreammonitor.azurewebsites.net/api/stream/${encodeURIComponent(liveEventName)}`);
     const state = await fetchResponse.json();
 
     const totalTime = Date.now() - before;
