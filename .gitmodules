@@ -5,3 +5,6 @@
 [submodule "tools/pyconline-schedule-slide"]
 	path = tools/pyconline-schedule
 	url = https://gitlab.com/xfxf/pyconline-schedule-slide.git
+[submodule "tools/pyconline-schedule"]
+	path = tools/pyconline-schedule
+	url = https://github.com/xfxf/pyconline-schedule-slide.git
