@@ -1,7 +1,7 @@
-const fetchState = async (liveEventName) => {
+const fetchState = async (liveEventName, streamEndpoint) => {
   try {
     const before = Date.now();
-    const fetchResponse = await fetch(`https://pyconlinestreammonitor.azurewebsites.net/api/stream/${encodeURIComponent(liveEventName)}`);
+    const fetchResponse = await fetch(`https://pyconlinestreammonitor.azurewebsites.net/api/stream/${encodeURIComponent(liveEventName)}??streamEndpoint=https://${streamEndpoint}-ndvmediaservice1-aueas.streaming.media.azure.net`);
     const state = await fetchResponse.json();
 
     const totalTime = Date.now() - before;
@@ -46,6 +46,7 @@ const run = async () => {
 
   const liveEventName = params.get('event');
   const displayName = params.get('name') || liveEventName;
+  const streamEndpoint = params.get('endpoint') || 'ndvendpoint1';
 
   if (!liveEventName) {
     throw new Error('Event not set');
@@ -61,7 +62,7 @@ const run = async () => {
   do {
     setTitleLabel({ loading: true });
 
-    const { error, streamURL, offlineReason } = await fetchState(liveEventName);
+    const { error, streamURL, offlineReason } = await fetchState(liveEventName, streamEndpoint);
 
     if (error) {
       setTitleLabel({ error: error });
