@@ -1,16 +1,17 @@
-const fetchState = async (liveEventName, streamEndpoint) => {
+
+const fetchState = async (displayName, id) => {
   try {
     const before = Date.now();
-    const fetchResponse = await fetch(`https://pyconlinestreammonitor.azurewebsites.net/api/stream/${encodeURIComponent(liveEventName)}?streamEndpoint=https://${streamEndpoint}-ndvmediaservice1-aueas.streaming.media.azure.net`);
+    const fetchResponse = await fetch(`https://fpylzao93a.execute-api.ap-southeast-2.amazonaws.com/api/stream/${encodeURIComponent(id)}`);
     const state = await fetchResponse.json();
 
     const totalTime = Date.now() - before;
 
-    console.log(`[${liveEventName}] Got state in ${totalTime}ms`, state);
+    console.log(`[${displayName}] Got state in ${totalTime}ms`, state);
 
     return state;
   } catch(err) {
-    return { error: err.message }
+    return { ok: false, error: err.message }
   }
 }
 
@@ -31,25 +32,42 @@ const createSetTitleLabel = (el, room) => ({ loading = false, live = false, erro
 }
 
 const run = async () => {
-  const player = amp("azuremediaplayer", {
-    nativeControlsForTouch: false,
-    controls: true,
-    autoplay: true,
-    width: "100%",
-    height: "100%",
-    muted: true,
-    // logo: { enabled: false }
+  if (!Hls.isSupported()) {
+    alert('This multiview is only intended for use with hls.js, sorry');
+  }
+  
+  const video = document.getElementById('azuremediaplayer');
+
+  const hls = new Hls({
+      debug: true
   });
+  hls.attachMedia(video);
+  hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+    video.muted = true;
+    video.play();
+});
+
+  // const player = amp("azuremediaplayer", {
+  //   nativeControlsForTouch: false,
+  //   controls: true,
+  //   autoplay: true,
+  //   width: "100%",
+  //   height: "100%",
+  //   muted: true,
+  //   // logo: { enabled: false }
+  // });
 
   
   const params = (new URL(location.href)).searchParams;
 
-  const liveEventName = params.get('event');
-  const displayName = params.get('name') || liveEventName;
-  const streamEndpoint = params.get('endpoint') || 'ndvendpoint1';
+  const displayName = params.get('name');
+  const id = params.get('id');
 
-  if (!liveEventName) {
-    throw new Error('Event not set');
+  if (!displayName) {
+    throw new Error('Display Name not set');
+  }
+  if (!id) {
+    throw new Error('ID not set');
   }
 
   const offlineEl = document.getElementById('offline');
@@ -62,7 +80,7 @@ const run = async () => {
   do {
     setTitleLabel({ loading: true });
 
-    const { error, streamURL, offlineReason } = await fetchState(liveEventName, streamEndpoint);
+    const { error, stream: streamURL, online } = await fetchState(displayName, id);
 
     if (error) {
       setTitleLabel({ error: error });
@@ -73,17 +91,16 @@ const run = async () => {
     setTitleLabel({ live: !!streamURL });
 
     if (streamURL) {
+      video.style.display = '';
       offlineEl.style.display = 'none';
       if (streamURL !== currentStreamURL) {
-        player.src({
-          src: streamURL,
-          type: "application/vnd.ms-sstr+xml"
-        });
+        hls.loadSource(streamURL + '?cdn=fastly');
       }
     } else {
       offlineEl.style.display = '';
-      offlineEl.querySelector('small').textContent = `${liveEventName}: ${offlineReason}`;
-
+      offlineEl.querySelector('small').textContent = `${displayName}: Stream offline`;
+      video.style.display = 'none';
+      
       if (currentStreamURL) {
         if (player.isFullscreen()) {
           player.exitFullscreen();
@@ -98,7 +115,7 @@ const run = async () => {
     const offset = 30000 + (Math.round(Math.random() * 10000) - 5000);
 
 
-    console.log(`[${liveEventName}] Next in ${offset}ms`);
+    console.log(`[${displayName}] Next in ${offset}ms`);
 
     await wait(offset);
   } while(true);
