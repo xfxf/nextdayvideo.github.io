@@ -1,4 +1,3 @@
-
 const fetchState = async (displayName, id) => {
   try {
     const before = Date.now();
@@ -38,27 +37,27 @@ const run = async () => {
   
   const video = document.getElementById('azuremediaplayer');
 
+  const params = (new URL(location.href)).searchParams;
+  const hlsDebug = params.get('hlsdebug') === 'true';
+
   const hls = new Hls({
-      debug: true
+      debug: hlsDebug,
+      enableWorker: true,
+      fragLoadingMaxRetry: Infinity,
+      fragLoadingMaxRetryTimeout: 5000,
+      levelLoadingMaxRetry: Infinity,
+      levelLoadingMaxRetryTimeout: 5000,
+      liveBackBufferLength: 0,
+      liveMaxLatencyDurationCount: 10,
+      manifestLoadingMaxRetry: Infinity,
+      manifestLoadingMaxRetryTimeout: 5000,
   });
   hls.attachMedia(video);
   hls.on(Hls.Events.MEDIA_ATTACHED, () => {
     video.muted = true;
     video.play();
-});
-
-  // const player = amp("azuremediaplayer", {
-  //   nativeControlsForTouch: false,
-  //   controls: true,
-  //   autoplay: true,
-  //   width: "100%",
-  //   height: "100%",
-  //   muted: true,
-  //   // logo: { enabled: false }
-  // });
-
+  });
   
-  const params = (new URL(location.href)).searchParams;
 
   const displayName = params.get('name');
   const id = params.get('id');
@@ -77,15 +76,28 @@ const run = async () => {
 
   let currentStreamURL;
 
-  do {
+  const showError = (message) => {
+    offlineEl.style.display = '';
+    offlineEl.querySelector('small').textContent = `${displayName}: ${message}`;
+    video.style.display = 'none';
+  }
+
+  let refreshingFromState = false;
+
+  const refreshFromState = async () => {
+    if (refreshingFromState) {
+      return;
+    }
+    refreshingFromState = true;
+
     setTitleLabel({ loading: true });
 
     const { error, stream: streamURL, online } = await fetchState(displayName, id);
 
     if (error) {
       setTitleLabel({ error: error });
-      await wait(30000);
-      continue;
+      refreshingFromState = false;
+      return;
     }
 
     setTitleLabel({ live: !!streamURL });
@@ -97,9 +109,7 @@ const run = async () => {
         hls.loadSource(streamURL + '?cdn=fastly');
       }
     } else {
-      offlineEl.style.display = '';
-      offlineEl.querySelector('small').textContent = `${displayName}: Stream offline`;
-      video.style.display = 'none';
+      showError(`Stream offline`);
       
       if (currentStreamURL) {
         if (player.isFullscreen()) {
@@ -112,14 +122,97 @@ const run = async () => {
 
     currentStreamURL = streamURL;
 
-    const offset = 30000 + (Math.round(Math.random() * 10000) - 5000);
+    refreshingFromState = false;
+  };
 
+  hls.on(Hls.Events.ERROR, function (eventName, data) {
+    console.warn('Error event:', data);
+    switch (data.details) {
+    case Hls.ErrorDetails.MANIFEST_LOAD_ERROR:
+      showError(`MANIFEST_LOAD_ERROR`);
+    case Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT:
+      showError('Timeout while loading manifest');
+      break;
+    case Hls.ErrorDetails.MANIFEST_PARSING_ERROR:
+      showError(`Error while parsing manifest: ${data.reason}`);
+      break;
+    case Hls.ErrorDetails.LEVEL_EMPTY_ERROR:
+      showError('Loaded level contains no fragments ' + data.level + ' ' + data.url);
+      break;
+    case Hls.ErrorDetails.LEVEL_LOAD_ERROR:
+      showError('Error while loading level playlist ' + data.context.level + ' ' + data.url);
+      break;
+    case Hls.ErrorDetails.LEVEL_LOAD_TIMEOUT:
+      showError('Timeout while loading level playlist ' + data.context.level + ' ' + data.url);
+      break;
+    case Hls.ErrorDetails.LEVEL_SWITCH_ERROR:
+      showError('Error while trying to switch to level ' + data.level);
+      break;
+    case Hls.ErrorDetails.FRAG_LOAD_ERROR:
+      showError('Error while loading fragment ' + data.frag.url);
+      break;
+    case Hls.ErrorDetails.FRAG_LOAD_TIMEOUT:
+      showError('Timeout while loading fragment ' + data.frag.url);
+      break;
+    case Hls.ErrorDetails.FRAG_LOOP_LOADING_ERROR:
+      showError('Fragment-loop loading error');
+      break;
+    case Hls.ErrorDetails.FRAG_DECRYPT_ERROR:
+      showError('Decrypting error:' + data.reason);
+      break;
+    case Hls.ErrorDetails.FRAG_PARSING_ERROR:
+      showError('Parsing error:' + data.reason);
+      break;
+    case Hls.ErrorDetails.KEY_LOAD_ERROR:
+      showError('Error while loading key ' + data.frag.decryptdata.uri);
+      break;
+    case Hls.ErrorDetails.KEY_LOAD_TIMEOUT:
+      showError('Timeout while loading key ' + data.frag.decryptdata.uri);
+      break;
+    case Hls.ErrorDetails.BUFFER_APPEND_ERROR:
+      showError('Buffer append error');
+      break;
+    case Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR:
+      showError('Buffer add codec error for ' + data.mimeType + ':' + data.err.message);
+      break;
+    case Hls.ErrorDetails.BUFFER_APPENDING_ERROR:
+      showError('Buffer appending error');
+      break;
+    case Hls.ErrorDetails.BUFFER_STALLED_ERROR:
+      showError('Buffer stalled error');
+      break;
+    default:
+      break;
+    }
+
+    if (data.fatal) {
+      console.error('Fatal error :' + data.details);
+      switch (data.type) {
+      case Hls.ErrorTypes.MEDIA_ERROR:
+        showError('MEDIA_ERROR');
+        break;
+      case Hls.ErrorTypes.NETWORK_ERROR:
+        showError('NETWORK_ERROR');
+        break;
+      default:
+        logError('An unrecoverable error occurred');
+        break;
+      }
+
+      currentStreamURL = "error://"
+      refreshFromState();
+    }
+  });
+
+  do {
+    await refreshFromState();
+
+    const offset = 30000 + (Math.round(Math.random() * 10000) - 5000);
 
     console.log(`[${displayName}] Next in ${offset}ms`);
 
     await wait(offset);
   } while(true);
-
 };
 
 run().catch(err => console.error('Failed somewhere', err));
