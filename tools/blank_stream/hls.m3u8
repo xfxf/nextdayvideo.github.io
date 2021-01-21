@@ -7,8 +7,6 @@
 hls0.ts
 #EXTINF:10.000000,
 hls1.ts
-#EXTINF:10.000000,
+#EXTINF:9.800000,
 hls2.ts
-#EXTINF:0.000000,
-hls3.ts
 #EXT-X-ENDLIST
