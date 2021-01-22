@@ -83,9 +83,14 @@ const run = async () => {
     video.style.display = 'none';
   };
 
+  let clearShowWarning;
   const showWarning = (message) => {
     warningEl.style.display = '';
-    warningEl.querySelector('small').textContent = message;
+    warningEl.querySelector('small').textContent = `${message} (${(new Date()).toTimeString()})`;
+    clearTimeout(clearShowWarning);
+    clearShowWarning = setTimeout(() => {
+      warningEl.style.display = 'none';
+    }, 30000);
   };
 
   let refreshingFromState = false;
