@@ -53,7 +53,7 @@ body {
   margin: 0;
 }
 
-#room-name, #nav {
+#room-name, #nav, #warning {
   background-color: #444444;
   padding: 1em;
   display: inline-block;
@@ -63,6 +63,12 @@ body {
   color: #eeeeee;
   font-family: monospace;
   border-radius: 0.5em;
+}
+
+#warning {
+  left: inherit;
+  right: 20px;
+  background-color: #666666;
 }
 
 #azuremediaplayer {
