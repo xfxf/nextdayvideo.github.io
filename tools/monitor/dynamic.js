@@ -88,8 +88,6 @@ const run = async () => {
     warningEl.querySelector('small').textContent = message;
   };
 
-  showWarning('Hello world');
-
   let refreshingFromState = false;
 
   const refreshFromState = async (force) => {
