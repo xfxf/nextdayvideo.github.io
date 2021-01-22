@@ -69,6 +69,7 @@ const run = async () => {
     throw new Error('ID not set');
   }
 
+  const warningEl = document.getElementById('warning');
   const offlineEl = document.getElementById('offline');
   const roomNameEl = document.getElementById('room-name');
 
@@ -80,11 +81,18 @@ const run = async () => {
     offlineEl.style.display = '';
     offlineEl.querySelector('small').textContent = `${displayName}: ${message}`;
     video.style.display = 'none';
-  }
+  };
+
+  const showWarning = (message) => {
+    warningEl.style.display = '';
+    warningEl.querySelector('small').textContent = message;
+  };
+
+  showWarning('Hello world');
 
   let refreshingFromState = false;
 
-  const refreshFromState = async () => {
+  const refreshFromState = async (force) => {
     if (refreshingFromState) {
       return;
     }
@@ -92,7 +100,7 @@ const run = async () => {
 
     setTitleLabel({ loading: true });
 
-    const { error, stream: streamURL, online } = await fetchState(displayName, id);
+    const { error, stream: streamURL } = await fetchState(displayName, id);
 
     if (error) {
       setTitleLabel({ error: error });
@@ -105,18 +113,14 @@ const run = async () => {
     if (streamURL) {
       video.style.display = '';
       offlineEl.style.display = 'none';
-      if (streamURL !== currentStreamURL) {
+      if (force || streamURL !== currentStreamURL) {
         hls.loadSource(streamURL + '?cdn=fastly');
       }
     } else {
       showError(`Stream offline`);
       
       if (currentStreamURL) {
-        if (player.isFullscreen()) {
-          player.exitFullscreen();
-        }
-
-        player.pause();
+        video.pause();
       }
     }
 
@@ -129,57 +133,57 @@ const run = async () => {
     console.warn('Error event:', data);
     switch (data.details) {
     case Hls.ErrorDetails.MANIFEST_LOAD_ERROR:
-      showError(`MANIFEST_LOAD_ERROR`);
+      showWarning(`MANIFEST_LOAD_ERROR`);
     case Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT:
-      showError('Timeout while loading manifest');
+      showWarning('Timeout while loading manifest');
       break;
     case Hls.ErrorDetails.MANIFEST_PARSING_ERROR:
-      showError(`Error while parsing manifest: ${data.reason}`);
+      showWarning(`Error while parsing manifest: ${data.reason}`);
       break;
     case Hls.ErrorDetails.LEVEL_EMPTY_ERROR:
-      showError('Loaded level contains no fragments ' + data.level + ' ' + data.url);
+      showWarning('Loaded level contains no fragments ' + data.level + ' ' + data.url);
       break;
     case Hls.ErrorDetails.LEVEL_LOAD_ERROR:
-      showError('Error while loading level playlist ' + data.context.level + ' ' + data.url);
+      showWarning('Error while loading level playlist ' + data.context.level + ' ' + data.url);
       break;
     case Hls.ErrorDetails.LEVEL_LOAD_TIMEOUT:
-      showError('Timeout while loading level playlist ' + data.context.level + ' ' + data.url);
+      showWarning('Timeout while loading level playlist ' + data.context.level + ' ' + data.url);
       break;
     case Hls.ErrorDetails.LEVEL_SWITCH_ERROR:
-      showError('Error while trying to switch to level ' + data.level);
+      showWarning('Error while trying to switch to level ' + data.level);
       break;
     case Hls.ErrorDetails.FRAG_LOAD_ERROR:
-      showError('Error while loading fragment ' + data.frag.url);
+      showWarning('Error while loading fragment ' + data.frag.url);
       break;
     case Hls.ErrorDetails.FRAG_LOAD_TIMEOUT:
-      showError('Timeout while loading fragment ' + data.frag.url);
+      showWarning('Timeout while loading fragment ' + data.frag.url);
       break;
     case Hls.ErrorDetails.FRAG_LOOP_LOADING_ERROR:
-      showError('Fragment-loop loading error');
+      showWarning('Fragment-loop loading error');
       break;
     case Hls.ErrorDetails.FRAG_DECRYPT_ERROR:
-      showError('Decrypting error:' + data.reason);
+      showWarning('Decrypting error:' + data.reason);
       break;
     case Hls.ErrorDetails.FRAG_PARSING_ERROR:
-      showError('Parsing error:' + data.reason);
+      showWarning('Parsing error:' + data.reason);
       break;
     case Hls.ErrorDetails.KEY_LOAD_ERROR:
-      showError('Error while loading key ' + data.frag.decryptdata.uri);
+      showWarning('Error while loading key ' + data.frag.decryptdata.uri);
       break;
     case Hls.ErrorDetails.KEY_LOAD_TIMEOUT:
-      showError('Timeout while loading key ' + data.frag.decryptdata.uri);
+      showWarning('Timeout while loading key ' + data.frag.decryptdata.uri);
       break;
     case Hls.ErrorDetails.BUFFER_APPEND_ERROR:
-      showError('Buffer append error');
+      showWarning('Buffer append error');
       break;
     case Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR:
-      showError('Buffer add codec error for ' + data.mimeType + ':' + data.err.message);
+      showWarning('Buffer add codec error for ' + data.mimeType + ':' + data.err.message);
       break;
     case Hls.ErrorDetails.BUFFER_APPENDING_ERROR:
-      showError('Buffer appending error');
+      showWarning('Buffer appending error');
       break;
     case Hls.ErrorDetails.BUFFER_STALLED_ERROR:
-      showError('Buffer stalled error');
+      showWarning('Buffer stalled error');
       break;
     default:
       break;
@@ -199,13 +203,12 @@ const run = async () => {
         break;
       }
 
-      currentStreamURL = "error://"
-      refreshFromState();
+      refreshFromState(true);
     }
   });
 
   do {
-    await refreshFromState();
+    await refreshFromState(false);
 
     const offset = 30000 + (Math.round(Math.random() * 10000) - 5000);
 
